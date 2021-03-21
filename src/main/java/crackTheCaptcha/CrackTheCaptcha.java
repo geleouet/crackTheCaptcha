@@ -57,7 +57,7 @@ public class CrackTheCaptcha {
 	private void start() throws IOException {
 		//UIServer uiServer = UIServer.getInstance();
 
-		int batchSize = 256; // how many examples to simultaneously train in the network
+		int batchSize = 1024; // how many examples to simultaneously train in the network
 		var emnistSet = EmnistDataSetIterator.Set.COMPLETE;
 		EmnistDataSetIterator emnistTrain = new EmnistDataSetIterator(emnistSet, batchSize, true);
 		EmnistDataSetIterator emnistTest = new EmnistDataSetIterator(emnistSet, batchSize, false);
@@ -73,7 +73,7 @@ public class CrackTheCaptcha {
 		
 		//emnistTrain.setPreProcessor(new CropAndResizeDataSetPreProcessor(28, 28, 0, 0, numRows, numColumns, channels, ResizeMethod.Bilinear));
 		
-		int numEpochs = 10;
+		int numEpochs = 100;
 		
 		List<String> labels = emnistTrain.getLabels();
 		for (int i = 0; i < labels.size(); i++) {
@@ -125,8 +125,8 @@ public class CrackTheCaptcha {
 		
 		/**/
 		EarlyStoppingConfiguration<MultiLayerNetwork> esConf = new EarlyStoppingConfiguration.Builder<MultiLayerNetwork>()
-		        .epochTerminationConditions(new MaxEpochsTerminationCondition(100))
-		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(20, TimeUnit.MINUTES))
+		        .epochTerminationConditions(new MaxEpochsTerminationCondition(numEpochs))
+		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(30, TimeUnit.MINUTES))
 		        .scoreCalculator(new DataSetLossCalculator(emnistTest, true))
 		        .evaluateEveryNEpochs(1)
 		        .modelSaver(new LocalFileModelSaver("."))
@@ -158,7 +158,6 @@ public class CrackTheCaptcha {
 		boolean reportScore = true;
 		boolean reportGC = true;
 		network.addListeners(new PerformanceListener(listenerFrequency, reportScore, reportGC));
-		/**/
 		
 		//StatsStorage statsStorage = new InMemoryStatsStorage();
 		//uiServer.attach(statsStorage);
@@ -187,7 +186,7 @@ public class CrackTheCaptcha {
 		   network.save(new File("model_emnist_complete."+i+".bin"));
 		   System.out.println("Epoch " + i + " / " + numEpochs + " -> " + ((end - start) / 1000) +"s");
 		}
-		
+		/**/
 		
 		network.save(new File("model_emnist_complete.bin"));
 		
