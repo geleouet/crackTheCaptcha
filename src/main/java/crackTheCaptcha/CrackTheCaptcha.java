@@ -62,10 +62,10 @@ public class CrackTheCaptcha {
 		EmnistDataSetIterator emnistTrain = new EmnistDataSetIterator(emnistSet, batchSize, true);
 		EmnistDataSetIterator emnistTest = new EmnistDataSetIterator(emnistSet, batchSize, false);
 
-		var scaler = new ImagePreProcessingScaler(0, 1);
+		/*var scaler = new ImagePreProcessingScaler(0, 1);
 		scaler.fit(emnistTrain);
 		emnistTrain.setPreProcessor(scaler);
-		emnistTest.setPreProcessor(scaler);
+		emnistTest.setPreProcessor(scaler);*/
 		
 		var numRows = 28; // number of "pixel rows" in an mnist digit
 		var numColumns = 28;
