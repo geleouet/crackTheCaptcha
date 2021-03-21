@@ -5,9 +5,16 @@ package crackTheCaptcha;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-import org.deeplearning4j.core.storage.StatsStorage;
 import org.deeplearning4j.datasets.iterator.impl.EmnistDataSetIterator;
+import org.deeplearning4j.earlystopping.EarlyStoppingConfiguration;
+import org.deeplearning4j.earlystopping.EarlyStoppingResult;
+import org.deeplearning4j.earlystopping.saver.LocalFileModelSaver;
+import org.deeplearning4j.earlystopping.scorecalc.DataSetLossCalculator;
+import org.deeplearning4j.earlystopping.termination.MaxEpochsTerminationCondition;
+import org.deeplearning4j.earlystopping.termination.MaxTimeIterationTerminationCondition;
+import org.deeplearning4j.earlystopping.trainer.EarlyStoppingTrainer;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.CacheMode;
 import org.deeplearning4j.nn.conf.ConvolutionMode;
@@ -22,13 +29,8 @@ import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.PerformanceListener;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
-import org.deeplearning4j.ui.api.UIServer;
-import org.deeplearning4j.ui.model.stats.StatsListener;
-import org.deeplearning4j.ui.model.storage.InMemoryStatsStorage;
-import org.deeplearning4j.ui.weights.ConvolutionalIterationListener;
 import org.nd4j.linalg.activations.Activation; // defines different activation functions like RELU, SOFTMAX, etc.
-import org.nd4j.linalg.dataset.api.preprocessor.CropAndResizeDataSetPreProcessor;
-import org.nd4j.linalg.dataset.api.preprocessor.CropAndResizeDataSetPreProcessor.ResizeMethod;
+import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions; // mean squared error, multiclass cross entropy, etc.
 
@@ -56,17 +58,22 @@ public class CrackTheCaptcha {
 		//UIServer uiServer = UIServer.getInstance();
 
 		int batchSize = 256; // how many examples to simultaneously train in the network
-		var emnistSet = EmnistDataSetIterator.Set.COMPLETE;
+		var emnistSet = EmnistDataSetIterator.Set.MNIST;
 		EmnistDataSetIterator emnistTrain = new EmnistDataSetIterator(emnistSet, batchSize, true);
 		EmnistDataSetIterator emnistTest = new EmnistDataSetIterator(emnistSet, batchSize, false);
 
+		var scaler = new ImagePreProcessingScaler(0,1);
+		scaler.fit(emnistTrain);
+		emnistTrain.setPreProcessor(scaler);
+		emnistTest.setPreProcessor(scaler);
+		
 		var numRows = 28; // number of "pixel rows" in an mnist digit
 		var numColumns = 28;
 		var channels = 1;
 		
 		//emnistTrain.setPreProcessor(new CropAndResizeDataSetPreProcessor(28, 28, 0, 0, numRows, numColumns, channels, ResizeMethod.Bilinear));
 		
-		int numEpochs = 15;
+		int numEpochs = 10;
 		
 		List<String> labels = emnistTrain.getLabels();
 		for (int i = 0; i < labels.size(); i++) {
@@ -116,6 +123,31 @@ public class CrackTheCaptcha {
                 .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
                 .build();
 		
+		
+		EarlyStoppingConfiguration<MultiLayerNetwork> esConf = new EarlyStoppingConfiguration.Builder<MultiLayerNetwork>()
+		        .epochTerminationConditions(new MaxEpochsTerminationCondition(30))
+		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(20, TimeUnit.MINUTES))
+		        .scoreCalculator(new DataSetLossCalculator(emnistTest, true))
+		        .evaluateEveryNEpochs(1)
+		        .modelSaver(new LocalFileModelSaver("."))
+		        .build();
+
+		EarlyStoppingTrainer trainer = new EarlyStoppingTrainer(esConf,conf, emnistTrain);
+
+		//Conduct early stopping training:
+		EarlyStoppingResult<MultiLayerNetwork> result = trainer.fit();
+
+		//Print out the results:
+		System.out.println("Termination reason: " + result.getTerminationReason());
+		System.out.println("Termination details: " + result.getTerminationDetails());
+		System.out.println("Total epochs: " + result.getTotalEpochs());
+		System.out.println("Best epoch number: " + result.getBestModelEpoch());
+		System.out.println("Score at best epoch: " + result.getBestModelScore());
+
+		//Get the best model:
+		MultiLayerNetwork network = result.getBestModel();
+		
+		/*
 		// create the MLN
 		var network = new MultiLayerNetwork(conf);
 		network.init();
@@ -126,7 +158,7 @@ public class CrackTheCaptcha {
 		boolean reportScore = true;
 		boolean reportGC = true;
 		network.addListeners(new PerformanceListener(listenerFrequency, reportScore, reportGC));
-		
+		*/
 		
 		//StatsStorage statsStorage = new InMemoryStatsStorage();
 		//uiServer.attach(statsStorage);
