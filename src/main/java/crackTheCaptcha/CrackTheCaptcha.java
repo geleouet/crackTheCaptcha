@@ -2,7 +2,6 @@ package crackTheCaptcha;
 
 
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +27,8 @@ import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
+import org.deeplearning4j.optimize.listeners.PerformanceListener;
+import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.activations.Activation; // defines different activation functions like RELU, SOFTMAX, etc.
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions; // mean squared error, multiclass cross entropy, etc.
@@ -133,7 +134,14 @@ public class CrackTheCaptcha {
 
 		var network = new MultiLayerNetwork(conf);
 		network.init();
-		
+
+		// pass a training listener that reports score every 10 iterations
+		int listenerFrequency = 100;
+		network.addListeners(new ScoreIterationListener(listenerFrequency));
+		boolean reportScore = true;
+		boolean reportGC = true;
+		network.addListeners(new PerformanceListener(listenerFrequency, reportScore, reportGC));
+
 		EarlyStoppingTrainer trainer = new EarlyStoppingTrainer(esConf, network, emnistTrain);
 
 		//Conduct early stopping training:
