@@ -53,7 +53,7 @@ public class CrackTheCaptcha {
 	}
 
 	private void start() throws IOException {
-		UIServer uiServer = UIServer.getInstance();
+		//UIServer uiServer = UIServer.getInstance();
 
 		int batchSize = 256; // how many examples to simultaneously train in the network
 		var emnistSet = EmnistDataSetIterator.Set.COMPLETE;
@@ -86,7 +86,7 @@ public class CrackTheCaptcha {
                 .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
                 
                 .list()
-                .layer(new ConvolutionLayer.Builder(5, 5)//5, 5
+                .layer(new ConvolutionLayer.Builder( 5, 5)//5, 5
                     .nIn(channels)
                     .stride(1, 1)
                     .nOut(20)  //20
@@ -128,9 +128,9 @@ public class CrackTheCaptcha {
 		network.addListeners(new PerformanceListener(listenerFrequency, reportScore, reportGC));
 		
 		
-		StatsStorage statsStorage = new InMemoryStatsStorage();
-		uiServer.attach(statsStorage);
-		network.addListeners(new StatsListener(statsStorage, listenerFrequency));
+		//StatsStorage statsStorage = new InMemoryStatsStorage();
+		//uiServer.attach(statsStorage);
+		//network.addListeners(new StatsListener(statsStorage, listenerFrequency));
 		
 		//var convolutionListener = new ConvolutionalIterationListener(eachIterations);
 		//network.addListeners(convolutionListener);
