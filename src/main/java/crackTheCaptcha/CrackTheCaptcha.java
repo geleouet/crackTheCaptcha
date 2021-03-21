@@ -62,7 +62,7 @@ public class CrackTheCaptcha {
 		EmnistDataSetIterator emnistTrain = new EmnistDataSetIterator(emnistSet, batchSize, true);
 		EmnistDataSetIterator emnistTest = new EmnistDataSetIterator(emnistSet, batchSize, false);
 
-		var scaler = new ImagePreProcessingScaler(0,1);
+		var scaler = new ImagePreProcessingScaler(0, 1);
 		scaler.fit(emnistTrain);
 		emnistTrain.setPreProcessor(scaler);
 		emnistTest.setPreProcessor(scaler);
@@ -123,7 +123,7 @@ public class CrackTheCaptcha {
                 .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
                 .build();
 		
-		
+		/*
 		EarlyStoppingConfiguration<MultiLayerNetwork> esConf = new EarlyStoppingConfiguration.Builder<MultiLayerNetwork>()
 		        .epochTerminationConditions(new MaxEpochsTerminationCondition(30))
 		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(20, TimeUnit.MINUTES))
@@ -147,7 +147,7 @@ public class CrackTheCaptcha {
 		//Get the best model:
 		MultiLayerNetwork network = result.getBestModel();
 		
-		/*
+		/**/
 		// create the MLN
 		var network = new MultiLayerNetwork(conf);
 		network.init();
@@ -158,7 +158,7 @@ public class CrackTheCaptcha {
 		boolean reportScore = true;
 		boolean reportGC = true;
 		network.addListeners(new PerformanceListener(listenerFrequency, reportScore, reportGC));
-		*/
+		/**/
 		
 		//StatsStorage statsStorage = new InMemoryStatsStorage();
 		//uiServer.attach(statsStorage);
