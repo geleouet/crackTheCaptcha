@@ -58,7 +58,7 @@ public class CrackTheCaptcha {
 		//UIServer uiServer = UIServer.getInstance();
 
 		int batchSize = 256; // how many examples to simultaneously train in the network
-		var emnistSet = EmnistDataSetIterator.Set.MNIST;
+		var emnistSet = EmnistDataSetIterator.Set.COMPLETE;
 		EmnistDataSetIterator emnistTrain = new EmnistDataSetIterator(emnistSet, batchSize, true);
 		EmnistDataSetIterator emnistTest = new EmnistDataSetIterator(emnistSet, batchSize, false);
 
@@ -123,9 +123,9 @@ public class CrackTheCaptcha {
                 .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
                 .build();
 		
-		/*
+		/**/
 		EarlyStoppingConfiguration<MultiLayerNetwork> esConf = new EarlyStoppingConfiguration.Builder<MultiLayerNetwork>()
-		        .epochTerminationConditions(new MaxEpochsTerminationCondition(30))
+		        .epochTerminationConditions(new MaxEpochsTerminationCondition(100))
 		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(20, TimeUnit.MINUTES))
 		        .scoreCalculator(new DataSetLossCalculator(emnistTest, true))
 		        .evaluateEveryNEpochs(1)
@@ -147,7 +147,7 @@ public class CrackTheCaptcha {
 		//Get the best model:
 		MultiLayerNetwork network = result.getBestModel();
 		
-		/**/
+		/*
 		// create the MLN
 		var network = new MultiLayerNetwork(conf);
 		network.init();
