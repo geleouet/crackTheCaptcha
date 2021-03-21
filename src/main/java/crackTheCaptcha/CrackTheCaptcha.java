@@ -14,6 +14,7 @@ import org.deeplearning4j.earlystopping.saver.LocalFileModelSaver;
 import org.deeplearning4j.earlystopping.scorecalc.DataSetLossCalculator;
 import org.deeplearning4j.earlystopping.termination.MaxEpochsTerminationCondition;
 import org.deeplearning4j.earlystopping.termination.MaxTimeIterationTerminationCondition;
+import org.deeplearning4j.earlystopping.termination.ScoreImprovementEpochTerminationCondition;
 import org.deeplearning4j.earlystopping.trainer.EarlyStoppingTrainer;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.CacheMode;
@@ -27,10 +28,7 @@ import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
-import org.deeplearning4j.optimize.listeners.PerformanceListener;
-import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.activations.Activation; // defines different activation functions like RELU, SOFTMAX, etc.
-import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions; // mean squared error, multiclass cross entropy, etc.
 
@@ -123,16 +121,20 @@ public class CrackTheCaptcha {
                 .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
                 .build();
 		
+		
 		/**/
 		EarlyStoppingConfiguration<MultiLayerNetwork> esConf = new EarlyStoppingConfiguration.Builder<MultiLayerNetwork>()
-		        .epochTerminationConditions(new MaxEpochsTerminationCondition(numEpochs))
-		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(30, TimeUnit.MINUTES))
+		        .epochTerminationConditions(new MaxEpochsTerminationCondition(numEpochs), new ScoreImprovementEpochTerminationCondition(5))
+		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(60, TimeUnit.MINUTES))
 		        .scoreCalculator(new DataSetLossCalculator(emnistTest, true))
 		        .evaluateEveryNEpochs(1)
 		        .modelSaver(new LocalFileModelSaver("."))
 		        .build();
 
-		EarlyStoppingTrainer trainer = new EarlyStoppingTrainer(esConf,conf, emnistTrain);
+		var network = new MultiLayerNetwork(conf);
+		network.init();
+		
+		EarlyStoppingTrainer trainer = new EarlyStoppingTrainer(esConf, network, emnistTrain);
 
 		//Conduct early stopping training:
 		EarlyStoppingResult<MultiLayerNetwork> result = trainer.fit();
@@ -145,7 +147,7 @@ public class CrackTheCaptcha {
 		System.out.println("Score at best epoch: " + result.getBestModelScore());
 
 		//Get the best model:
-		MultiLayerNetwork network = result.getBestModel();
+		MultiLayerNetwork bestModel = result.getBestModel();
 		
 		/*
 		// create the MLN
@@ -188,17 +190,17 @@ public class CrackTheCaptcha {
 		}
 		/**/
 		
-		network.save(new File("model_emnist_complete.bin"));
+		//network.save(new File("model_emnist_complete.bin"));
 		
 		// evaluate basic performance
 		//var eval = network.evaluate[Evaluation](emnistTest);
-		var eval = network.evaluate(emnistTest);
+		var eval = bestModel.evaluate(emnistTest);
 		System.out.println(eval.accuracy());
 		System.out.println(eval.precision());
 		System.out.println(eval.recall());
 
 		// evaluate ROC and calculate the Area Under Curve
-		var roc = network.evaluateROCMultiClass(emnistTest, 0);
+		var roc = bestModel.evaluateROCMultiClass(emnistTest, 0);
 		int classIndex = 1;
 		roc.calculateAUC(classIndex);
 
