@@ -57,7 +57,7 @@ public class CrackTheCaptcha {
 	private void start() throws IOException {
 		//UIServer uiServer = UIServer.getInstance();
 
-		int batchSize = 512; // how many examples to simultaneously train in the network
+		int batchSize = 256; // how many examples to simultaneously train in the network
 		var emnistSet = EmnistDataSetIterator.Set.COMPLETE;
 		EmnistDataSetIterator emnistTrain = new EmnistDataSetIterator(emnistSet, batchSize, true);
 		EmnistDataSetIterator emnistTest = new EmnistDataSetIterator(emnistSet, batchSize, false);
