@@ -66,7 +66,7 @@ public class CrackTheCaptcha {
 		
 		//emnistTrain.setPreProcessor(new CropAndResizeDataSetPreProcessor(28, 28, 0, 0, numRows, numColumns, channels, ResizeMethod.Bilinear));
 		
-		int numEpochs = 10;
+		int numEpochs = 15;
 		
 		List<String> labels = emnistTrain.getLabels();
 		for (int i = 0; i < labels.size(); i++) {
@@ -86,10 +86,10 @@ public class CrackTheCaptcha {
                 .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
                 
                 .list()
-                .layer(new ConvolutionLayer.Builder( 5, 5)//5, 5
+                .layer(new ConvolutionLayer.Builder(3, 3)//5, 5
                     .nIn(channels)
                     .stride(1, 1)
-                    .nOut(20)  //20
+                    .nOut(50)  //20
                     .activation(Activation.RELU)
                     .convolutionMode(ConvolutionMode.Same)
                     .build())
@@ -97,7 +97,7 @@ public class CrackTheCaptcha {
                     .kernelSize(2, 2)
                     .stride(2, 2)
                     .build())
-                .layer(new ConvolutionLayer.Builder(5, 5)
+                .layer(new ConvolutionLayer.Builder(3, 3)
                     .stride(1, 1) // nIn need not specified in later layers
                     .nOut(50)
                     .activation(Activation.RELU)
