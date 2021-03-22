@@ -90,7 +90,7 @@ public class CrackTheCaptcha {
                 
                 .cacheMode(CacheMode.HOST)
                 .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                
+                .dropOut(0.1)
                 .list()
                 .layer(new ConvolutionLayer.Builder(3, 3)//5, 5
                     .nIn(channels)
