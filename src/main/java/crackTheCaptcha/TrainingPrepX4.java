@@ -6,12 +6,15 @@ import static org.bytedeco.opencv.global.opencv_imgcodecs.imread;
 import static org.bytedeco.opencv.global.opencv_imgcodecs.imwrite;
 import static org.bytedeco.opencv.global.opencv_imgproc.CHAIN_APPROX_SIMPLE;
 import static org.bytedeco.opencv.global.opencv_imgproc.COLOR_BGR2GRAY;
+import static org.bytedeco.opencv.global.opencv_imgproc.CV_SHAPE_ELLIPSE;
 import static org.bytedeco.opencv.global.opencv_imgproc.RETR_EXTERNAL;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_BINARY_INV;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_OTSU;
 import static org.bytedeco.opencv.global.opencv_imgproc.boundingRect;
+import static org.bytedeco.opencv.global.opencv_imgproc.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.cvtColor;
 import static org.bytedeco.opencv.global.opencv_imgproc.findContours;
+import static org.bytedeco.opencv.global.opencv_imgproc.getStructuringElement;
 import static org.bytedeco.opencv.global.opencv_imgproc.threshold;
 
 import java.awt.Color;
@@ -38,7 +41,9 @@ import javax.imageio.ImageIO;
 
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.MatVector;
+import org.bytedeco.opencv.opencv_core.Point;
 import org.bytedeco.opencv.opencv_core.Rect;
+import org.bytedeco.opencv.opencv_core.Size;
 import org.datavec.image.loader.Java2DNativeImageLoader;
 import org.deeplearning4j.datasets.iterator.impl.EmnistDataSetIterator;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
@@ -61,20 +66,21 @@ public class TrainingPrepX4 {
 	static boolean debugNet = false;
 	static boolean debugPrepare = false;
 	
-	public static void mainDbg(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException {
 		int width = 28;
 		int height = 28;
 		
 		debugPrepare = true;
+		debugNet = true;
 		
 		ImageFilter filter = new GrayFilter();  
 		BufferedImageOp resampler = new ResampleOp(width, height, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
 		
-		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("emnist_model.bin"), false);
-		GuessResult analyse = analyse(width, height, net2, filter, resampler, "2W4M.png");
+		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("bestModel.bin"), false);
+		GuessResult analyse = analyse(width, height, net2, filter, resampler, "uACyk.jpeg");
 		System.out.println(analyse.guess + ";"+analyse.confident);
 	}
-	public static void main(String[] args) throws IOException {
+	public static void mainAll(String[] args) throws IOException {
 		
 		var loadUpdater = false;
 		int width = 28;
@@ -124,6 +130,8 @@ public class TrainingPrepX4 {
 		Mat grayScaleHist = new Mat(origin.size().width(), origin.size().height(), COLOR_BGR2GRAY);
 		Mat grayScaleWthBorder = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
 		Mat thresholded = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
+		Mat eroded = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
+		Mat dilated = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
 		Mat hierarchy = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
 		
 		cvtColor(origin, grayScale, COLOR_BGR2GRAY);
@@ -140,8 +148,18 @@ public class TrainingPrepX4 {
 		threshold(grayScaleWthBorder, thresholded, 128, 255, THRESH_BINARY_INV | THRESH_OTSU);
 		if (debugPrepare) imwrite("thresholded.png", thresholded);
 		
+		int kernelSize = 2;
+		var elementType = CV_SHAPE_ELLIPSE;
+        Mat element = getStructuringElement(elementType, new Size(2 * kernelSize + 1, 2 * kernelSize + 1),
+                new Point(kernelSize, kernelSize));
+        erode(thresholded, eroded, element);
+        if (debugPrepare) imwrite("eroded.png", eroded);
+		
+        dilate(eroded, dilated, element);
+        if (debugPrepare) imwrite("dilated.png", dilated);
+        
 		MatVector contours = new MatVector();
-		findContours(thresholded, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+		findContours(dilated, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 		
 		
 		BufferedImage boxedDbg = debugPrepare ? ImageIO.read(new File(fileName)) : null;
@@ -170,10 +188,10 @@ public class TrainingPrepX4 {
 			//BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(Math.max(rect.x()-8, 0), Math.max(0, rect.y()-8), Math.min(original_width - Math.max(rect.x()-8, 0), rect.width()),
 			//		Math.min(original_height - Math.max(rect.y()-8, 0), rect.height()));
 			BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(
-					Math.max(rect.x()-8 -1, 0), 
-					Math.max(0, rect.y()-8 -1), 
-					Math.min(original_width - Math.max(rect.x()-8 -1, 0), rect.width()+2),
-					Math.min(original_height - Math.max(rect.y()-8-1, 0), rect.height()+2));
+					Math.max(rect.x()-8 -1 -kernelSize, 0), 
+					Math.max(0, rect.y()-8 -1 -kernelSize), 
+					Math.min(original_width - Math.max(rect.x()-8 -1-kernelSize, 0), rect.width()+2+2*kernelSize),
+					Math.min(original_height - Math.max(rect.y()-8-1-kernelSize, 0), rect.height()+2+2*kernelSize));
 			if (debugPrepare) ImageIO.write(cropped, "PNG", new File("cropped_"+idx+".png"));
 			
 			BufferedImage output = resampler.filter(cropped, null);
@@ -182,14 +200,19 @@ public class TrainingPrepX4 {
 			if (debugPrepare) {
 				Graphics graphics = boxedDbg.getGraphics();
 				graphics.setColor(Color.red);
-				System.out.println(Math.max(rect.x()-8, 0) +", "+ Math.max(0, rect.y()-8)+", "+ Math.min(original_width - Math.max(rect.x()-8, 0), rect.width())+", "+
-						Math.min(original_height - Math.max(rect.y()-8, 0), rect.height()));	
-				graphics.drawRect(Math.max(rect.x()-8, 0), Math.max(0, rect.y()-8), Math.min(original_width - Math.max(rect.x()-8, 0), rect.width()),
-						Math.min(original_height - Math.max(rect.y()-8, 0), rect.height()));	
+				System.out.println(Math.max(rect.x()-8-kernelSize, 0) +", "+ Math.max(0, rect.y()-8-kernelSize)+", "+ Math.min(original_width - Math.max(rect.x()-8-kernelSize, 0), rect.width()+2*kernelSize)+", "+
+						Math.min(original_height - Math.max(rect.y()-8-kernelSize, 0), rect.height()+2*kernelSize));	
+				graphics.drawRect(Math.max(rect.x()-8-kernelSize, 0), Math.max(0, rect.y()-8-kernelSize), Math.min(original_width - Math.max(rect.x()-8-kernelSize, 0), rect.width()+2*kernelSize),
+						Math.min(original_height - Math.max(rect.y()-8-kernelSize, 0), rect.height()+2*kernelSize));	
 			}
 			
 			GuessResult g = net2 !=  null ? guess(width, height, net2, invert(output)) : new GuessResult("", 0.);
 			if (g.confident > 0.2) guessed.put(rect.x(), g);
+			
+			if (debugNet) {
+				System.out.println(idx + ":" + g.guess + " (" + g.confident + ")");
+			}
+			
 		}
 		
 		if (debugPrepare) {
@@ -198,7 +221,6 @@ public class TrainingPrepX4 {
 		}
 		String r = guessed.entrySet().stream().sorted(Comparator.comparing(e -> e.getKey())).map(e -> e.getValue().guess).collect(Collectors.joining());
 		double c = guessed.entrySet().stream().sorted(Comparator.comparing(e -> e.getKey())).mapToDouble(e -> e.getValue().confident).reduce(1, (a,b) -> a*b);
-		
 		return new GuessResult(r, c);
 	}
 
