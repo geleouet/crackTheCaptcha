@@ -200,7 +200,6 @@ public class CrackTheCaptcha {
 						.convolutionMode(ConvolutionMode.Same)
 						.build())
 				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
-						.nIn(channels)
 						.stride(1, 1)
 						.nOut(32)  //20
 						.activation(Activation.RELU)
