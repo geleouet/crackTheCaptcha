@@ -72,7 +72,7 @@ public class CrackTheCaptcha {
 		
 		//emnistTrain.setPreProcessor(new CropAndResizeDataSetPreProcessor(28, 28, 0, 0, numRows, numColumns, channels, ResizeMethod.Bilinear));
 		
-		int numEpochs = 100;
+		int numEpochs = 300;
 		
 		List<String> labels = emnistTrain.getLabels();
 		for (int i = 0; i < labels.size(); i++) {
@@ -82,45 +82,7 @@ public class CrackTheCaptcha {
 		var outputNum = EmnistDataSetIterator.numLabels(emnistSet); // total output classes
 		var rngSeed = 123; // integer for reproducability of a random number generator
 		
-		MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                .seed(rngSeed)
-                .l2(0.0005) // ridge regression value
-                .updater(new Nesterovs(0.005, 0.9)) // learning rate, momentum
-                .weightInit(WeightInit.XAVIER)
-                
-                .cacheMode(CacheMode.HOST)
-                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                .dropOut(0.1)
-                .list()
-                .layer(new ConvolutionLayer.Builder(3, 3)//5, 5
-                    .nIn(channels)
-                    .stride(1, 1)
-                    .nOut(50)  //20
-                    .activation(Activation.RELU)
-                    .convolutionMode(ConvolutionMode.Same)
-                    .build())
-                .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                    .kernelSize(2, 2)
-                    .stride(2, 2)
-                    .build())
-                .layer(new ConvolutionLayer.Builder(3, 3)
-                    .stride(1, 1) // nIn need not specified in later layers
-                    .nOut(50)
-                    .activation(Activation.RELU)
-                    .build())
-                .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                    .kernelSize(2, 2)
-                    .stride(2, 2)
-                    .build())
-                .layer(new DenseLayer.Builder().activation(Activation.RELU)
-                    .nOut(500)
-                    .build())
-                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
-                    .nOut(outputNum)
-                    .activation(Activation.SOFTMAX)
-                    .build())
-                .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
-                .build();
+		MultiLayerConfiguration conf = networkConfiguration(numRows, numColumns, channels, outputNum, rngSeed);
 		
 		
 		/**/
@@ -217,6 +179,101 @@ public class CrackTheCaptcha {
 		System.out.print(roc.stats());
 		
 		System.out.println(" ------   end   ------");
+	}
+
+	private MultiLayerConfiguration networkConfiguration(int numRows, int numColumns, int channels, int outputNum, int rngSeed) {
+		return new NeuralNetConfiguration.Builder()
+				.seed(rngSeed)
+				.l2(0.0005) // ridge regression value
+				.updater(new Nesterovs(0.005, 0.9)) // learning rate, momentum
+				.weightInit(WeightInit.XAVIER)
+
+				.cacheMode(CacheMode.HOST)
+				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+				.dropOut(0.1)
+				.list()
+				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
+						.nIn(channels)
+						.stride(1, 1)
+						.nOut(32)  //20
+						.activation(Activation.RELU)
+						.convolutionMode(ConvolutionMode.Same)
+						.build())
+				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
+						.nIn(channels)
+						.stride(1, 1)
+						.nOut(32)  //20
+						.activation(Activation.RELU)
+						.convolutionMode(ConvolutionMode.Same)
+						.build())
+				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+						.kernelSize(2, 2)
+						.stride(2, 2)
+						.build())
+				.layer(new ConvolutionLayer.Builder(3, 3)
+						.stride(1, 1) // nIn need not specified in later layers
+						.nOut(64)
+						.activation(Activation.RELU)
+						.build())
+				.layer(new ConvolutionLayer.Builder(3, 3)
+						.stride(1, 1) // nIn need not specified in later layers
+						.nOut(64)
+						.activation(Activation.RELU)
+						.build())
+				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+						.kernelSize(2, 2)
+						.stride(2, 2)
+						.build())
+				.layer(new DenseLayer.Builder().activation(Activation.RELU)
+						.nOut(512)
+						.build())
+				.layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+						.nOut(outputNum)
+						.activation(Activation.SOFTMAX)
+						.build())
+				.setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
+				.build();
+	}
+	private MultiLayerConfiguration networkConfiguration0(int numRows, int numColumns, int channels, int outputNum, int rngSeed) {
+		return new NeuralNetConfiguration.Builder()
+				.seed(rngSeed)
+				.l2(0.0005) // ridge regression value
+				.updater(new Nesterovs(0.005, 0.9)) // learning rate, momentum
+				.weightInit(WeightInit.XAVIER)
+				
+				.cacheMode(CacheMode.HOST)
+				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+				.dropOut(0.1)
+				.list()
+				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
+						.nIn(channels)
+						.stride(1, 1)
+						.nOut(50)  //20
+						.activation(Activation.RELU)
+						.convolutionMode(ConvolutionMode.Same)
+						.build())
+				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+						.kernelSize(2, 2)
+						.stride(2, 2)
+						.build())
+				.layer(new ConvolutionLayer.Builder(3, 3)
+						.stride(1, 1) // nIn need not specified in later layers
+						.nOut(50)
+						.activation(Activation.RELU)
+						.build())
+				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+						.kernelSize(2, 2)
+						.stride(2, 2)
+						.build())
+				.layer(new DenseLayer.Builder().activation(Activation.RELU)
+						.nOut(500)
+						.build())
+				.layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+						.nOut(outputNum)
+						.activation(Activation.SOFTMAX)
+						.build())
+				.setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
+				.build();
 	}
 	
 }
