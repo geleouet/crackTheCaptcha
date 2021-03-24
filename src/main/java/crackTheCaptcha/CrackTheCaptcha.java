@@ -182,17 +182,17 @@ public class CrackTheCaptcha {
 	}
 
 	private MultiLayerConfiguration networkConfiguration(int numRows, int numColumns, int channels, int outputNum, int rngSeed) {
-		double inputRetainProbability = 0.9;
+		double inputRetainProbability = 0.8;
 		return new NeuralNetConfiguration.Builder()
 				.seed(rngSeed)
-				.l2(0.001) // ridge regression value
+				.l2(0.0005) // ridge regression value
 				.updater(new Nesterovs(0.0005, inputRetainProbability)) // learning rate, momentum
 				.weightInit(WeightInit.XAVIER)
 
 				.cacheMode(CacheMode.HOST)
 				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
 				.list()
-				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
+				.layer(new ConvolutionLayer.Builder(5, 5)//5, 5
 						.name("conv1")
 						.dropOut(inputRetainProbability)
 						.nIn(channels)
