@@ -72,7 +72,7 @@ public class CrackTheCaptcha {
 		
 		//emnistTrain.setPreProcessor(new CropAndResizeDataSetPreProcessor(28, 28, 0, 0, numRows, numColumns, channels, ResizeMethod.Bilinear));
 		
-		int numEpochs = 300;
+		int numEpochs = 1000;
 		
 		List<String> labels = emnistTrain.getLabels();
 		for (int i = 0; i < labels.size(); i++) {
@@ -88,7 +88,7 @@ public class CrackTheCaptcha {
 		/**/
 		EarlyStoppingConfiguration<MultiLayerNetwork> esConf = new EarlyStoppingConfiguration.Builder<MultiLayerNetwork>()
 		        .epochTerminationConditions(new MaxEpochsTerminationCondition(numEpochs), new ScoreImprovementEpochTerminationCondition(5))
-		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(60, TimeUnit.MINUTES))
+		        .iterationTerminationConditions(new MaxTimeIterationTerminationCondition(600, TimeUnit.MINUTES))
 		        .scoreCalculator(new DataSetLossCalculator(emnistTest, true))
 		        .evaluateEveryNEpochs(1)
 		        .modelSaver(new LocalFileModelSaver("."))
@@ -182,18 +182,19 @@ public class CrackTheCaptcha {
 	}
 
 	private MultiLayerConfiguration networkConfiguration(int numRows, int numColumns, int channels, int outputNum, int rngSeed) {
+		double inputRetainProbability = 0.9;
 		return new NeuralNetConfiguration.Builder()
 				.seed(rngSeed)
 				.l2(0.0005) // ridge regression value
-				.updater(new Nesterovs(0.005, 0.9)) // learning rate, momentum
+				.updater(new Nesterovs(0.0005, inputRetainProbability)) // learning rate, momentum
 				.weightInit(WeightInit.XAVIER)
 
 				.cacheMode(CacheMode.HOST)
 				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-				.dropOut(0.98)
 				.list()
 				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
 						.name("conv1")
+						.dropOut(inputRetainProbability)
 						.nIn(channels)
 						.stride(1, 1)
 						.nOut(64)  //20
@@ -202,22 +203,26 @@ public class CrackTheCaptcha {
 						.build())
 				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
 						.name("pool1")
+						.dropOut(inputRetainProbability)
 						.kernelSize(2, 2)
 						.stride(2, 2)
 						.build())
 				.layer(new ConvolutionLayer.Builder(3, 3)
 						.name("conv2")
+						.dropOut(inputRetainProbability)
 						.stride(1, 1) // nIn need not specified in later layers
 						.nOut(64)
 						.activation(Activation.RELU)
 						.build())
 				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
 						.name("pool2")
+						.dropOut(inputRetainProbability)
 						.kernelSize(2, 2)
 						.stride(2, 2)
 						.build())
 				.layer(new DenseLayer.Builder().activation(Activation.RELU)
 						.name("dense")
+						.dropOut(inputRetainProbability)
 						.nOut(512)
 						.build())
 				.layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
