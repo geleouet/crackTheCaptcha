@@ -190,84 +190,38 @@ public class CrackTheCaptcha {
 
 				.cacheMode(CacheMode.HOST)
 				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-				.dropOut(0.99)
+				.dropOut(0.98)
 				.list()
 				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
+						.name("conv1")
 						.nIn(channels)
 						.stride(1, 1)
-						.nOut(32)  //20
-						.activation(Activation.RELU)
-						.convolutionMode(ConvolutionMode.Same)
-						.build())
-				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
-						.stride(1, 1)
-						.nOut(32)  //20
+						.nOut(64)  //20
 						.activation(Activation.RELU)
 						.convolutionMode(ConvolutionMode.Same)
 						.build())
 				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+						.name("pool1")
 						.kernelSize(2, 2)
 						.stride(2, 2)
 						.build())
 				.layer(new ConvolutionLayer.Builder(3, 3)
-						.stride(1, 1) // nIn need not specified in later layers
-						.nOut(64)
-						.activation(Activation.RELU)
-						.build())
-				.layer(new ConvolutionLayer.Builder(3, 3)
+						.name("conv2")
 						.stride(1, 1) // nIn need not specified in later layers
 						.nOut(64)
 						.activation(Activation.RELU)
 						.build())
 				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+						.name("pool2")
 						.kernelSize(2, 2)
 						.stride(2, 2)
 						.build())
 				.layer(new DenseLayer.Builder().activation(Activation.RELU)
+						.name("dense")
 						.nOut(512)
 						.build())
 				.layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
-						.nOut(outputNum)
-						.activation(Activation.SOFTMAX)
-						.build())
-				.setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
-				.build();
-	}
-	private MultiLayerConfiguration networkConfiguration0(int numRows, int numColumns, int channels, int outputNum, int rngSeed) {
-		return new NeuralNetConfiguration.Builder()
-				.seed(rngSeed)
-				.l2(0.0005) // ridge regression value
-				.updater(new Nesterovs(0.005, 0.9)) // learning rate, momentum
-				.weightInit(WeightInit.XAVIER)
-				
-				.cacheMode(CacheMode.HOST)
-				.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-				.dropOut(0.1)
-				.list()
-				.layer(new ConvolutionLayer.Builder(3, 3)//5, 5
-						.nIn(channels)
-						.stride(1, 1)
-						.nOut(50)  //20
-						.activation(Activation.RELU)
-						.convolutionMode(ConvolutionMode.Same)
-						.build())
-				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-						.kernelSize(2, 2)
-						.stride(2, 2)
-						.build())
-				.layer(new ConvolutionLayer.Builder(3, 3)
-						.stride(1, 1) // nIn need not specified in later layers
-						.nOut(50)
-						.activation(Activation.RELU)
-						.build())
-				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-						.kernelSize(2, 2)
-						.stride(2, 2)
-						.build())
-				.layer(new DenseLayer.Builder().activation(Activation.RELU)
-						.nOut(500)
-						.build())
-				.layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+						.name("output")
 						.nOut(outputNum)
 						.activation(Activation.SOFTMAX)
 						.build())
