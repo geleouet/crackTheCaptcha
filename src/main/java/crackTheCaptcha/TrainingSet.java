@@ -74,31 +74,23 @@ public class TrainingSet {
 		var train = new File(prep, "train");
 		if (!train.exists()) train.mkdirs();
 		
-		var loadUpdater = false;
 		int width = 28;
 		int height = 28;
 		
 		
 		System.out.println("Load");
-		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("trained_mnist_model.bin"), loadUpdater);
-		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("modellarge.bin"), loadUpdater);
-		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("modelcomplete0.bin"), loadUpdater);
 
-		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("emnist_model.bin"), loadUpdater);
 		ImageFilter filter = new GrayFilter();  
 		BufferedImageOp resampler = new ResampleOp(width, height, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
 		
 		
 		File evalDirectory = new File("train");
 
-		int correct = 0;
-		int all = 0;
 		for (File f : evalDirectory.listFiles()) {
 			String reference = f.getName().substring(0, 4);
 			analyse(width, height, filter, resampler, f.getAbsolutePath(), reference);
 		}
 		
-		System.out.println("Captcha " + correct  + "/" + all);
 		
 	}
 	
@@ -152,23 +144,73 @@ public class TrainingSet {
 		BufferedImage boxedDbg = ImageIO.read(new File(fileName));
 		
 		
+
+		
 		List<Rect> boxes = new ArrayList<>();
 		for (int idx = 0; idx < contours.size(); idx ++) {
 			Mat p = contours.get(idx);
 			Rect rect = boundingRect(p);
-			if (rect.area() < 64) continue;
-			
-			if ((0.001 + rect.width()) / rect.height() > 1.25) {
-				Rect a = new Rect(rect.x(), rect.y(), rect.width()/2+1, rect.height());
-				Rect b = new Rect(rect.x()+rect.width()/2, rect.y(), rect.width() - rect.width()/2+1, rect.height());
-				boxes.add(a);
-				boxes.add(b);
-			}
-			else {
-				boxes.add(rect);
-			}
+			if (rect.area() < 32) continue;
+			boxes.add(rect);
 		}
+		
+		if (boxes.size() == 3) {
+			List<Rect> tmp = new ArrayList<>();
+			for (int idx = 0; idx < boxes.size(); idx ++) {
+				Rect rect = boxes.get(idx);
+				if ((0.001 + rect.width()) / rect.height() > 1.25) {
+					Rect a = new Rect(rect.x(), rect.y(), rect.width()/2+1, rect.height());
+					Rect b = new Rect(rect.x()+rect.width()/2, rect.y(), rect.width() - rect.width()/2+1, rect.height());
+					tmp.add(a);
+					tmp.add(b);
+					System.out.println("split " + rect.x() + "-" +(rect.x() + rect.width())  + "  " + ((0.001 + rect.width()) / rect.height()));
+				}
+				else {
+					tmp.add(rect);
+				}
+			}
+			boxes = tmp;
+		}
+		
+		if (boxes.size() == 5) {
+			//search to merge 2 collinding boxes
 
+			int idx_1 = 0;
+			int idx_2 = 0;
+			for (int idx1 = 0; idx1 < boxes.size(); idx1 ++) {
+				Rect rect1 = boxes.get(idx1);
+				for (int idx2 = 0; idx2 < boxes.size(); idx2 ++) {
+					if (idx1 == idx2) continue;
+					Rect rect2 = boxes.get(idx2);
+					
+					if (rect1.x() <= rect2.x() + rect2.width() +1
+							&& rect1.x() >= rect2.x()) {
+						idx_1 = idx1;
+						idx_2 = idx2;
+					}
+				}
+			}
+			List<Rect> tmp = new ArrayList<>();
+			for (int idx = 0; idx < boxes.size(); idx ++) {
+				if (idx != idx_1 && idx != idx_2) {
+					Rect rect = boxes.get(idx);
+					tmp.add(rect);
+				}
+			}
+			
+			Rect rect1 = boxes.get(idx_1);
+			Rect rect2 = boxes.get(idx_2);
+			
+			int mx = Math.min(rect1.x(), rect2.x());
+			int my = Math.min(rect1.y(), rect2.y());
+			int mw = Math.max(rect1.x()+rect1.width(), rect2.x()+rect2.width()) - mx;
+			int mh = Math.max(rect1.y()+rect1.height(), rect2.y()+rect2.height()) - my;
+			Rect merged= new Rect(mx, my,mw, mh);
+			tmp.add(merged);
+			
+			boxes = tmp;
+		}
+		
 		class Box {
 			int x, y, w, h;
 
@@ -184,9 +226,7 @@ public class TrainingSet {
 		List<Box> boxesReady = new ArrayList<>();
 		for (int idx = 0; idx < boxes.size(); idx ++) {
 			Rect rect = boxes.get(idx);
-			//System.out.println(rect.x() + " " + rect.y()+ " " + rect.width() + " " + rect.height());
-			//BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(Math.max(rect.x()-8, 0), Math.max(0, rect.y()-8), Math.min(original_width - Math.max(rect.x()-8, 0), rect.width()),
-			//		Math.min(original_height - Math.max(rect.y()-8, 0), rect.height()));
+			
 			int x = Math.max(rect.x()-8 -1 -kernelSize, 0);
 			int y = Math.max(0, rect.y()-8 -1 -kernelSize);
 			int w = Math.min(original_width - Math.max(rect.x()-8 -1-kernelSize, 0), rect.width()+2+2*kernelSize);
@@ -195,6 +235,7 @@ public class TrainingSet {
 
 			boxesReady.add(new Box(x,y,w,h));
 		}
+		
 		Collections.sort(boxesReady, Comparator.comparing(b -> b.x));
 
 		if (boxesReady.size() == 4) {
@@ -208,12 +249,35 @@ public class TrainingSet {
 				int w = rect.w;
 				int h = rect.h;
 
-				BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage( x, y, w, h);
 				
 				String letter = "" + reference.charAt(idx);
 				
+				BufferedImage output;
+				{
+					BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(
+							x, 
+							y, 
+							w,
+							h);
+					double dw = ((double)width)/w;
+					double dh = ((double)height)/h;
+					double d = Math.min(dw, dh);
+					
+					int fw = (int) (w * d +0.5);
+					int fh = (int) (h * d +0.5);
+					
+					BufferedImageOp resampler0 = new ResampleOp(fw, fh, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
+					BufferedImage sampled = resampler0.filter(cropped, null);
 
-				BufferedImage output = resampler.filter(cropped, null);
+					BufferedImage enlarged = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+					Graphics g = enlarged.getGraphics();
+					g.setColor(Color.white);
+					g.fillRect(0, 0, width, height);
+					g.drawImage(sampled, (width-fw)/2, (height-fh)/2, null);
+					output = enlarged;
+				}
+				
+
 				if (!new File("prep/train/"+letter).exists()) new File("prep/train/"+letter).mkdirs();
 				ImageIO.write(invert(output), "PNG", new File("prep/train/"+letter+"/"+reference+"_"+counter.incrementAndGet()+".png"));
 

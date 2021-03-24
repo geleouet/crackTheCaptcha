@@ -30,6 +30,8 @@ import java.awt.image.ImageProducer;
 import java.awt.image.Raster;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -70,7 +72,7 @@ public class TrainingPrepX4 {
 	//static List<String> labels = EmnistDataSetIterator.getLabels(EmnistDataSetIterator.Set.COMPLETE);
 	static List<String> labels = Arrays.asList("A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z".split(","));
 	
-	public static void main(String[] args) throws IOException {
+	public static void maindbg(String[] args) throws IOException {
 		int width = 28;
 		int height = 28;
 		
@@ -86,7 +88,7 @@ public class TrainingPrepX4 {
 //		GuessResult analyse = analyse(width, height, net2, filter, resampler, "uACyk.jpeg");
 		System.out.println(analyse.guess + ";"+analyse.confident);
 	}
-	public static void mainDbg(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException {
 		
 		var loadUpdater = false;
 		int width = 28;
@@ -98,12 +100,20 @@ public class TrainingPrepX4 {
 		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("modellarge.bin"), loadUpdater);
 		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("modelcomplete0.bin"), loadUpdater);
 
-		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("model_custom.r.9.bin"), loadUpdater);
+		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("model_custom.r.9.bin"), loadUpdater);
+		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("model_transfert.r.9.bin"), loadUpdater);
 		ImageFilter filter = new GrayFilter();  
 		BufferedImageOp resampler = new ResampleOp(width, height, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
 		
 		
+		
 		File evalDirectory = new File("test");
+		File errorDirectory = new File("error");
+		if (!errorDirectory.exists()) errorDirectory.mkdirs();
+		for (File f :errorDirectory.listFiles()) f.delete();
+
+		if (!new File("dbg").exists()) new File("dbg").mkdirs(); 
+		for (File f : new File("dbg").listFiles()) f.delete();
 
 		int correct = 0;
 		int all = 0;
@@ -114,9 +124,13 @@ public class TrainingPrepX4 {
 			if (reference.equals(analyse.guess)) {
 				correct++;
 			}
+			else {
+				System.out.println(analyse.guess + ";" + reference+";"+ analyse.confident);
+				var split = f.getName().split("\\.");
+				Files.copy(f.toPath(), Path.of(errorDirectory.getAbsolutePath(), split[0] + "_" + analyse.guess+"."+split[1]));
+			}
 			all++;
 			
-			System.out.println(analyse.guess + ";" + reference+";"+ analyse.confident);
 		}
 		
 		System.out.println("Captcha " + correct  + "/" + all);
@@ -168,25 +182,74 @@ public class TrainingPrepX4 {
 		findContours(dilated, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 		
 		
-		BufferedImage boxedDbg = debugPrepare ? ImageIO.read(new File(fileName)) : null;
+		BufferedImage boxedDbg = ImageIO.read(new File(fileName));
 		
 		
 		List<Rect> boxes = new ArrayList<>();
 		for (int idx = 0; idx < contours.size(); idx ++) {
 			Mat p = contours.get(idx);
 			Rect rect = boundingRect(p);
-			if (rect.area() < 64) continue;
-			
-			if ((0.001 + rect.width()) / rect.height() > 1.25) {
-				Rect a = new Rect(rect.x(), rect.y(), rect.width()/2+1, rect.height());
-				Rect b = new Rect(rect.x()+rect.width()/2, rect.y(), rect.width() - rect.width()/2+1, rect.height());
-				boxes.add(a);
-				boxes.add(b);
-			}
-			else {
-				boxes.add(rect);
-			}
+			if (rect.area() < 32) continue;
+			boxes.add(rect);
 		}
+		
+		if (boxes.size() == 3) {
+			List<Rect> tmp = new ArrayList<>();
+			for (int idx = 0; idx < boxes.size(); idx ++) {
+				Rect rect = boxes.get(idx);
+				if ((0.001 + rect.width()) / rect.height() > 1.25) {
+					Rect a = new Rect(rect.x(), rect.y(), rect.width()/2+1, rect.height());
+					Rect b = new Rect(rect.x()+rect.width()/2, rect.y(), rect.width() - rect.width()/2+1, rect.height());
+					tmp.add(a);
+					tmp.add(b);
+					System.out.println("split " + rect.x() + "-" +(rect.x() + rect.width())  + "  " + ((0.001 + rect.width()) / rect.height()));
+				}
+				else {
+					tmp.add(rect);
+				}
+			}
+			boxes = tmp;
+		}
+		
+		if (boxes.size() == 5) {
+			//search to merge 2 collinding boxes
+
+			int idx_1 = 0;
+			int idx_2 = 0;
+			for (int idx1 = 0; idx1 < boxes.size(); idx1 ++) {
+				Rect rect1 = boxes.get(idx1);
+				for (int idx2 = 0; idx2 < boxes.size(); idx2 ++) {
+					if (idx1 == idx2) continue;
+					Rect rect2 = boxes.get(idx2);
+					
+					if (rect1.x() <= rect2.x() + rect2.width() +1
+							&& rect1.x() >= rect2.x()) {
+						idx_1 = idx1;
+						idx_2 = idx2;
+					}
+				}
+			}
+			List<Rect> tmp = new ArrayList<>();
+			for (int idx = 0; idx < boxes.size(); idx ++) {
+				if (idx != idx_1 && idx != idx_2) {
+					Rect rect = boxes.get(idx);
+					tmp.add(rect);
+				}
+			}
+			
+			Rect rect1 = boxes.get(idx_1);
+			Rect rect2 = boxes.get(idx_2);
+			
+			int mx = Math.min(rect1.x(), rect2.x());
+			int my = Math.min(rect1.y(), rect2.y());
+			int mw = Math.max(rect1.x()+rect1.width(), rect2.x()+rect2.width()) - mx;
+			int mh = Math.max(rect1.y()+rect1.height(), rect2.y()+rect2.height()) - my;
+			Rect merged= new Rect(mx, my,mw, mh);
+			tmp.add(merged);
+			
+			boxes = tmp;
+		}
+		
 		Map<Integer, GuessResult> guessed = new HashMap<>();
 		for (int idx = 0; idx < boxes.size(); idx ++) {
 			Rect rect = boxes.get(idx);
@@ -198,21 +261,41 @@ public class TrainingPrepX4 {
 			int w = Math.min(original_width - Math.max(rect.x()-8 -1-kernelSize, 0), rect.width()+2+2*kernelSize);
 			int h = Math.min(original_height - Math.max(rect.y()-8-1-kernelSize, 0), rect.height()+2+2*kernelSize);
 			if (w <= 0 || h <= 0) continue;
-			BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(
-					x, 
-					y, 
-					w,
-					h);
-			if (debugPrepare) ImageIO.write(cropped, "PNG", new File("cropped_"+idx+".png"));
 			
-			BufferedImage output = resampler.filter(cropped, null);
+			BufferedImage output;
+			{
+				BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(
+						x, 
+						y, 
+						w,
+						h);
+				if (debugPrepare) ImageIO.write(cropped, "PNG", new File("cropped_"+idx+".png"));
+				
+				double dw = ((double)width)/w;
+				double dh = ((double)height)/h;
+				double d = Math.min(dw, dh);
+				
+				int fw = (int) (w * d +0.5);
+				int fh = (int) (h * d +0.5);
+				
+				BufferedImageOp resampler0 = new ResampleOp(fw, fh, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
+				BufferedImage sampled = resampler0.filter(cropped, null);
+
+				BufferedImage enlarged = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+				Graphics g = enlarged.getGraphics();
+				g.setColor(Color.white);
+				g.fillRect(0, 0, width, height);
+				g.drawImage(sampled, (width-fw)/2, (height-fh)/2, null);
+				output = enlarged;
+			}
+			
+			
 			if (debugPrepare) ImageIO.write(output, "PNG", new File("output_"+idx+".png"));
 			
-			if (debugPrepare) {
+			//if (debugPrepare) 
+			{
 				Graphics graphics = boxedDbg.getGraphics();
 				graphics.setColor(Color.red);
-				System.out.println(Math.max(rect.x()-8-kernelSize, 0) +", "+ Math.max(0, rect.y()-8-kernelSize)+", "+ Math.min(original_width - Math.max(rect.x()-8-kernelSize, 0), rect.width()+2*kernelSize)+", "+
-						Math.min(original_height - Math.max(rect.y()-8-kernelSize, 0), rect.height()+2*kernelSize));	
 				graphics.drawRect(Math.max(rect.x()-8-kernelSize, 0), Math.max(0, rect.y()-8-kernelSize), Math.min(original_width - Math.max(rect.x()-8-kernelSize, 0), rect.width()+2*kernelSize),
 						Math.min(original_height - Math.max(rect.y()-8-kernelSize, 0), rect.height()+2*kernelSize));	
 			}
@@ -226,12 +309,14 @@ public class TrainingPrepX4 {
 			
 		}
 		
-		if (debugPrepare) {
-			ImageIO.write(boxedDbg, "PNG", new File("output_boxed.png"));
-			
-		}
 		String r = guessed.entrySet().stream().sorted(Comparator.comparing(e -> e.getKey())).map(e -> e.getValue().guess).collect(Collectors.joining());
 		double c = guessed.entrySet().stream().sorted(Comparator.comparing(e -> e.getKey())).mapToDouble(e -> e.getValue().confident).reduce(1, (a,b) -> a*b);
+
+		//if (debugPrepare) 
+		{
+			ImageIO.write(boxedDbg, "PNG", new File("dbg/boxed"+new File(fileName).getName().split("\\.")[0]+"_"+r+".png"));
+			
+		}
 		return new GuessResult(r, c);
 	}
 

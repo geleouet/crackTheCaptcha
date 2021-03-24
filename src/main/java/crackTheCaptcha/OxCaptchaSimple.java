@@ -41,7 +41,7 @@ import javax.imageio.ImageIO;
  *
  */
 
-public class OxCaptcha {
+public class OxCaptchaSimple {
 //    private static final Random RAND = new SecureRandom();
     private static final Random RAND = new Random(1378374134);
     private static final Random SEED = new Random(67843443547l);
@@ -58,7 +58,7 @@ public class OxCaptcha {
     private boolean _hollow;
     private Font _font;
     private FontRenderContext _fontRenderContext;
-    private char[] _charSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".toCharArray(); 
+    private char[] _charSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray(); 
     		//new char[] { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'k', 'm', 'n', 'p', 'r', 'w', 'x', 'y', '2', '3', '4', '5', '6', '7', '8', 'A', 'J', 'K','z','q','S'};
 
     String randomText(int length) {
@@ -73,11 +73,12 @@ public class OxCaptcha {
     	int width = 150;
     	int height = 50;
     
-    	if (new File("ox").exists()) {
-    		for (var f:new File("ox").listFiles()) f.delete();
+    	String pathname = "ox";
+		if (new File(pathname).exists()) {
+    		for (var f:new File(pathname).listFiles()) f.delete();
     	}
     	else {
-    		new File("ox").mkdirs();
+    		new File(pathname).mkdirs();
     	}
     	
     	
@@ -100,7 +101,7 @@ public class OxCaptcha {
 		if (!new File(prefix).exists()) new File(prefix).mkdirs();
 		
 		// Create Captcha container
-		OxCaptcha oxCaptcha = new OxCaptcha(150, 50);
+		OxCaptchaSimple oxCaptcha = new OxCaptchaSimple(150, 50);
 		// Create background
 		oxCaptcha.background();
 		
@@ -185,7 +186,7 @@ public class OxCaptcha {
 		return grLvlNoise;
 	}
     
-    public OxCaptcha(int width, int height) {
+    public OxCaptchaSimple(int width, int height) {
         _img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         _img_g = _img.createGraphics();
         _hollow = false;
@@ -910,8 +911,8 @@ public class OxCaptcha {
             }
         }
         
-        dxField = OxCaptcha.gaussian(dxField, 2, 2.2);
-        dyField = OxCaptcha.gaussian(dyField, 2, 2.2);
+        dxField = OxCaptchaSimple.gaussian(dxField, 2, 2.2);
+        dyField = OxCaptchaSimple.gaussian(dyField, 2, 2.2);
         
         for (int y = 0; y < _height; y++) 
         {
@@ -1047,8 +1048,8 @@ public class OxCaptcha {
             }
         }
         
-        dxField = OxCaptcha.gaussian(dxField, kernelSize, sigma);
-        dyField = OxCaptcha.gaussian(dyField, kernelSize, sigma);
+        dxField = OxCaptchaSimple.gaussian(dxField, kernelSize, sigma);
+        dyField = OxCaptchaSimple.gaussian(dyField, kernelSize, sigma);
         
         for (int y = 0; y < _height; y++) 
         {

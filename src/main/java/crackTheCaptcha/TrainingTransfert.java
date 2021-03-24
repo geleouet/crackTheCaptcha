@@ -15,29 +15,33 @@ import org.datavec.image.transform.MultiImageTransform;
 import org.datavec.image.transform.RotateImageTransform;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
-import org.deeplearning4j.nn.conf.CacheMode;
-import org.deeplearning4j.nn.conf.ConvolutionMode;
-import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
-import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
-import org.deeplearning4j.nn.conf.inputs.InputType;
-import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
-import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
-import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.transferlearning.FineTuneConfiguration;
+import org.deeplearning4j.nn.transferlearning.TransferLearning;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.PerformanceListener;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
-import org.nd4j.linalg.activations.Activation;
+import org.nd4j.linalg.activations.Activation; // defines different activation functions like RELU, SOFTMAX, etc.
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.linalg.learning.config.Nesterovs;
-import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.nd4j.linalg.lossfunctions.LossFunctions; // mean squared error, multiclass cross entropy, etc.
 
-public class TrainingNet {
+public class TrainingTransfert {
 
+	private static final long seed = 74456874;
 	private static final String[] allowedExtensions = BaseImageLoader.ALLOWED_FORMATS;
 	private static final Random randNumGen = new Random(735122);
+
+	
+	/**
+	 *  
+ Accuracy:        0,9962
+ Precision:       0,9962
+ Recall:          0,9962
+ F1 Score:        0,9961
+	 */
 
 	public static void main(String[] args) throws IOException {
 		int height = 28;
@@ -46,12 +50,46 @@ public class TrainingNet {
 		int numEpochs = 10;
 
 		File parentDir = new File("prep/train");
+		String baseName = "model_transfert";
+		MultiLayerNetwork networkOrigin = MultiLayerNetwork.load(new File("models/emnist2/bestModel.bin"), false);
+		
 		int classes = parentDir.list().length;
-		var conf = networkConfiguration(width, height, 1, classes, 3289322);
-		var network = new MultiLayerNetwork(conf);
-		//var network = MultiLayerNetwork.load(new File("bestModel.bin"), false);
-		network.init();
-
+		
+		if (networkOrigin != null) {
+			System.out.println(networkOrigin.summary());
+			System.out.println();
+		}
+		
+		double inputRetainProbability = 0.99;
+		FineTuneConfiguration fineTuneConf = new FineTuneConfiguration.Builder()
+		        
+		        .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+		        .updater(new Nesterovs(0.0005, inputRetainProbability)) // learning rate, momentum
+				.weightInit(WeightInit.XAVIER)
+		        .seed(seed)
+		        .build();
+		
+		
+		MultiLayerNetwork network = new TransferLearning.Builder(networkOrigin)
+        .fineTuneConfiguration(fineTuneConf)
+        .setFeatureExtractor(networkOrigin.getLayer("dense1").getIndex())
+        .removeOutputLayer()
+        .addLayer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+						.name("new_output")
+						.nIn(512)
+						.nOut(classes)
+						.activation(Activation.SOFTMAX)
+						.build())
+        .build();
+		
+		if (network != null) {
+			System.out.println(network.summary());
+			System.out.println();
+		}
+		
+		
+		
+		
 		FileSplit filesInDir = new FileSplit(parentDir, allowedExtensions, randNumGen);
 		ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator();
 		BalancedPathFilter pathFilter = new BalancedPathFilter(randNumGen, allowedExtensions, labelMaker);
@@ -123,7 +161,7 @@ public class TrainingNet {
 			long start = System.currentTimeMillis();
 			network.fit(dataIter);
 			long end = System.currentTimeMillis();
-			network.save(new File("model_custom.r." + i + ".bin"));
+			network.save(new File(baseName + ".r." + i + ".bin"));
 			System.out.println("Epoch " + i + " / " + numEpochs + " -> " + ((end - start) / 1000) + "s");
 		}
 		/**/
@@ -138,36 +176,24 @@ public class TrainingNet {
 		System.out.println(eval.recall());
 
 		// evaluate ROC and calculate the Area Under Curve
-		//var roc = network.evaluateROCMultiClass(dataTestIter, 0);
-		//int classIndex = 1;
-		//roc.calculateAUC(classIndex);
+		var roc = network.evaluateROCMultiClass(dataTestIter, 0);
+		int classIndex = 1;
+		roc.calculateAUC(classIndex);
 
 		// optionally, you can print all stats from the evaluations
-		//System.out.print(eval.stats(false, true));
-		//System.out.print(roc.stats());
+		System.out.print(eval.stats(false, true));
+		System.out.print(roc.stats());
 
+		System.out.println();
+		
+		
 		System.out.println(" ------   end   ------");
+
+		if (network != null) {
+			System.out.println(network.summary());
+			System.out.println();
+		}
+		
 	}
-
-	private static MultiLayerConfiguration networkConfiguration(int numRows, int numColumns, int channels, int outputNum, int rngSeed) {
-		return new NeuralNetConfiguration.Builder().seed(rngSeed)
-				// .l2(0.0005) // ridge regression value
-				.updater(new Nesterovs(0.005, 0.9)) // learning rate, momentum
-				.weightInit(WeightInit.XAVIER)
-
-				.cacheMode(CacheMode.HOST).optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-				// .dropOut(0.99)
-				.list().layer(new ConvolutionLayer.Builder(3, 3)// 5, 5
-						.name("conv1").nIn(channels).stride(1, 1).nOut(20) // 20
-						.activation(Activation.RELU).convolutionMode(ConvolutionMode.Same).build())
-				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX).name("pool1").kernelSize(2, 2).stride(2, 2).build())
-				.layer(new ConvolutionLayer.Builder(3, 3).name("conv2").stride(1, 1) // nIn need not specified in later layers
-						.nOut(20).activation(Activation.RELU).build())
-				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX).name("pool2").kernelSize(2, 2).stride(2, 2).build())
-				.layer(new DenseLayer.Builder().activation(Activation.RELU).nOut(500).build())
-				.layer(new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT).nOut(outputNum).activation(Activation.SOFTMAX).build()).setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal
-																																																					// image
-				.build();
-	}
-
+	
 }
