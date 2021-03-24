@@ -185,7 +185,7 @@ public class CrackTheCaptcha {
 		double inputRetainProbability = 0.9;
 		return new NeuralNetConfiguration.Builder()
 				.seed(rngSeed)
-				.l2(0.0005) // ridge regression value
+				.l2(0.001) // ridge regression value
 				.updater(new Nesterovs(0.0005, inputRetainProbability)) // learning rate, momentum
 				.weightInit(WeightInit.XAVIER)
 
@@ -220,8 +220,26 @@ public class CrackTheCaptcha {
 						.kernelSize(2, 2)
 						.stride(2, 2)
 						.build())
+				.layer(new ConvolutionLayer.Builder(3, 3)
+						.name("conv3")
+						.dropOut(inputRetainProbability)
+						.stride(1, 1) // nIn need not specified in later layers
+						.nOut(64)
+						.activation(Activation.RELU)
+						.build())
+				.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+						.name("pool3")
+						.dropOut(inputRetainProbability)
+						.kernelSize(2, 2)
+						.stride(2, 2)
+						.build())
 				.layer(new DenseLayer.Builder().activation(Activation.RELU)
-						.name("dense")
+						.name("dense1")
+						.dropOut(inputRetainProbability)
+						.nOut(512)
+						.build())
+				.layer(new DenseLayer.Builder().activation(Activation.RELU)
+						.name("dense2")
 						.dropOut(inputRetainProbability)
 						.nOut(512)
 						.build())
