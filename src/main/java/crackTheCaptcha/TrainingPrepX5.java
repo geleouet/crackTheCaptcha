@@ -1,7 +1,7 @@
 package crackTheCaptcha;
 
 import static org.bytedeco.opencv.global.opencv_core.BORDER_REPLICATE;
-import static org.bytedeco.opencv.global.opencv_core.add;
+import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_core.copyMakeBorder;
 import static org.bytedeco.opencv.global.opencv_core.extractChannel;
 import static org.bytedeco.opencv.global.opencv_core.inRange;
@@ -17,14 +17,14 @@ import static org.bytedeco.opencv.global.opencv_imgproc.RETR_EXTERNAL;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_BINARY_INV;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_OTSU;
 import static org.bytedeco.opencv.global.opencv_imgproc.boundingRect;
-import static org.bytedeco.opencv.global.opencv_imgproc.dilate;
+import static org.bytedeco.opencv.global.opencv_imgproc.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.drawContours;
 import static org.bytedeco.opencv.global.opencv_imgproc.findContours;
 import static org.bytedeco.opencv.global.opencv_imgproc.getStructuringElement;
 import static org.bytedeco.opencv.global.opencv_imgproc.morphologyEx;
 import static org.bytedeco.opencv.global.opencv_imgproc.threshold;
 import static org.bytedeco.opencv.global.opencv_photo.INPAINT_NS;
-import static org.bytedeco.opencv.global.opencv_photo.inpaint;
+import static org.bytedeco.opencv.global.opencv_photo.*;
 
 import java.awt.Color;
 import java.awt.Graphics;
@@ -49,6 +49,8 @@ import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
+import org.bytedeco.javacpp.FloatPointer;
+import org.bytedeco.javacpp.IntPointer;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.MatVector;
 import org.bytedeco.opencv.opencv_core.Point;
@@ -61,6 +63,8 @@ import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.MatOfInt;
 
 import com.twelvemonkeys.image.BufferedImageFactory;
 import com.twelvemonkeys.image.GrayFilter;
@@ -111,7 +115,7 @@ public class TrainingPrepX5 {
 			System.out.println(net2.summary());
 			System.out.println();
 		}
-		GuessResult analyse = analyse(width, height, net2, "3bIHDds.png");
+		GuessResult analyse = analyse(width, height, net2, "ox/train/ljmx.png");
 		//GuessResult analyse = analyse(width, height, net2, filter, resampler, "4pVrm.jpg");
 		System.out.println(analyse.guess + ";"+analyse.confident);
 	}
@@ -205,7 +209,7 @@ public class TrainingPrepX5 {
 				
 				//if (debugPrepare) imwrite("dbg/origin_bruit_"+idx+"_.png", cl);
 				Rect rect = boundingRect(p);
-				if (rect.area() < 32) {
+				if (rect.area() < 10) {
 					drawContours(grayScale, contours, idx, new Scalar(255), FILLED, 8, hierarchyOrigin, 1, new Point(0,0));
 					
 				}
@@ -221,6 +225,12 @@ public class TrainingPrepX5 {
 		
 		copyMakeBorder(grayScale, grayScaleWthBorder, 8, 8, 8, 8, BORDER_REPLICATE);
 		if (debugPrepare) imwrite("dbg/grayScaleWthBorder.png", grayScaleWthBorder);
+		
+		var histogram = new Mat();
+		calcHist(new MatVector(grayScaleWthBorder), new IntPointer(1),new Mat(),histogram,new IntPointer(1),new FloatPointer(0.f, 255.f));
+		
+		System.out.println();
+		
 		
 		//for (int i = 0; i < 255; i += 4)
 			

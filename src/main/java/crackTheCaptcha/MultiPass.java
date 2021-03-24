@@ -237,9 +237,9 @@ public class MultiPass {
         //create model
         ComputationGraph model =  createModel(62);
         //monitor the model score
-        UIServer uiServer = UIServer.getInstance();
+       // UIServer uiServer = UIServer.getInstance();
         StatsStorage statsStorage = new FileStatsStorage(new File("multi", "ui-stats.dl4j"));
-        uiServer.attach(statsStorage);
+        //uiServer.attach(statsStorage);
 
         //construct the iterator
         MultiDataSetIterator trainMulIterator = new MultiRecordDataSetIterator(batchSize, "train");
