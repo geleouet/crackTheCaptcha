@@ -31,6 +31,7 @@ import java.awt.image.Raster;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -66,6 +67,9 @@ public class TrainingPrepX4 {
 	static boolean debugNet = false;
 	static boolean debugPrepare = false;
 	
+	//static List<String> labels = EmnistDataSetIterator.getLabels(EmnistDataSetIterator.Set.COMPLETE);
+	static List<String> labels = Arrays.asList("A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z".split(","));
+	
 	public static void main(String[] args) throws IOException {
 		int width = 28;
 		int height = 28;
@@ -76,11 +80,13 @@ public class TrainingPrepX4 {
 		ImageFilter filter = new GrayFilter();  
 		BufferedImageOp resampler = new ResampleOp(width, height, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
 		
-		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("bestModel.bin"), false);
-		GuessResult analyse = analyse(width, height, net2, filter, resampler, "uACyk.jpeg");
+		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("model_custom.r.9.bin"), false);
+//		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("bestModel.bin"), false);
+		GuessResult analyse = analyse(width, height, net2, filter, resampler, "test/YRBO.png");
+//		GuessResult analyse = analyse(width, height, net2, filter, resampler, "uACyk.jpeg");
 		System.out.println(analyse.guess + ";"+analyse.confident);
 	}
-	public static void mainAll(String[] args) throws IOException {
+	public static void mainDbg(String[] args) throws IOException {
 		
 		var loadUpdater = false;
 		int width = 28;
@@ -92,12 +98,12 @@ public class TrainingPrepX4 {
 		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("modellarge.bin"), loadUpdater);
 		//MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("modelcomplete0.bin"), loadUpdater);
 
-		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("emnist_model.bin"), loadUpdater);
+		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("model_custom.r.9.bin"), loadUpdater);
 		ImageFilter filter = new GrayFilter();  
 		BufferedImageOp resampler = new ResampleOp(width, height, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
 		
 		
-		File evalDirectory = new File("train");
+		File evalDirectory = new File("test");
 
 		int correct = 0;
 		int all = 0;
@@ -121,7 +127,6 @@ public class TrainingPrepX4 {
 		BufferedImage read = ImageIO.read(new File(fileName));
 		int original_width = read.getWidth();
 		int original_height = read.getHeight();
-		
 		ImageProducer producer = new FilteredImageSource(read.getSource(), filter);  
 		Image mage = Toolkit.getDefaultToolkit().createImage(producer);
 		
@@ -140,7 +145,7 @@ public class TrainingPrepX4 {
 		threshold(grayScale, grayScaleHist, 128, 255, THRESH_OTSU);
 		//equalizeHist(grayScale, grayScaleHist);
 		if (debugPrepare) imwrite("grayscalehist.png", grayScaleHist);
-		
+		//L’adaptation au changement plus que le suivi d’un plan
 		
 		copyMakeBorder(grayScaleHist, grayScaleWthBorder, 8, 8, 8, 8, BORDER_REPLICATE);
 		if (debugPrepare) imwrite("grayScaleWthBorder.png", grayScaleWthBorder);
@@ -148,7 +153,8 @@ public class TrainingPrepX4 {
 		threshold(grayScaleWthBorder, thresholded, 128, 255, THRESH_BINARY_INV | THRESH_OTSU);
 		if (debugPrepare) imwrite("thresholded.png", thresholded);
 		
-		int kernelSize = 2;
+		
+		int kernelSize = 0;
 		var elementType = CV_SHAPE_ELLIPSE;
         Mat element = getStructuringElement(elementType, new Size(2 * kernelSize + 1, 2 * kernelSize + 1),
                 new Point(kernelSize, kernelSize));
@@ -187,11 +193,16 @@ public class TrainingPrepX4 {
 			//System.out.println(rect.x() + " " + rect.y()+ " " + rect.width() + " " + rect.height());
 			//BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(Math.max(rect.x()-8, 0), Math.max(0, rect.y()-8), Math.min(original_width - Math.max(rect.x()-8, 0), rect.width()),
 			//		Math.min(original_height - Math.max(rect.y()-8, 0), rect.height()));
+			int x = Math.max(rect.x()-8 -1 -kernelSize, 0);
+			int y = Math.max(0, rect.y()-8 -1 -kernelSize);
+			int w = Math.min(original_width - Math.max(rect.x()-8 -1-kernelSize, 0), rect.width()+2+2*kernelSize);
+			int h = Math.min(original_height - Math.max(rect.y()-8-1-kernelSize, 0), rect.height()+2+2*kernelSize);
+			if (w <= 0 || h <= 0) continue;
 			BufferedImage cropped = new BufferedImageFactory(mage).getBufferedImage().getSubimage(
-					Math.max(rect.x()-8 -1 -kernelSize, 0), 
-					Math.max(0, rect.y()-8 -1 -kernelSize), 
-					Math.min(original_width - Math.max(rect.x()-8 -1-kernelSize, 0), rect.width()+2+2*kernelSize),
-					Math.min(original_height - Math.max(rect.y()-8-1-kernelSize, 0), rect.height()+2+2*kernelSize));
+					x, 
+					y, 
+					w,
+					h);
 			if (debugPrepare) ImageIO.write(cropped, "PNG", new File("cropped_"+idx+".png"));
 			
 			BufferedImage output = resampler.filter(cropped, null);
@@ -270,7 +281,7 @@ public class TrainingPrepX4 {
 
 
         int nClasses = (int) result.data().length();
-        List<String> labels = EmnistDataSetIterator.getLabels(EmnistDataSetIterator.Set.COMPLETE);
+        
         double[] results = new double[nClasses];
         //transfer the neural network output to an array
         for (int i = 0; i < nClasses; i++) {results[i] = result.getDouble(0, i);}
