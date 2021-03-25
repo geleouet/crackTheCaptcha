@@ -2,6 +2,7 @@ package crackTheCaptcha;
 
 import static org.bytedeco.opencv.global.opencv_core.BORDER_REPLICATE;
 import static org.bytedeco.opencv.global.opencv_core.copyMakeBorder;
+import static org.bytedeco.opencv.global.opencv_core.inRange;
 import static org.bytedeco.opencv.global.opencv_imgcodecs.imread;
 import static org.bytedeco.opencv.global.opencv_imgcodecs.imwrite;
 import static org.bytedeco.opencv.global.opencv_imgproc.CHAIN_APPROX_SIMPLE;
@@ -11,8 +12,8 @@ import static org.bytedeco.opencv.global.opencv_imgproc.RETR_EXTERNAL;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_BINARY_INV;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_OTSU;
 import static org.bytedeco.opencv.global.opencv_imgproc.boundingRect;
-import static org.bytedeco.opencv.global.opencv_imgproc.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.cvtColor;
+import static org.bytedeco.opencv.global.opencv_imgproc.erode;
 import static org.bytedeco.opencv.global.opencv_imgproc.findContours;
 import static org.bytedeco.opencv.global.opencv_imgproc.getStructuringElement;
 import static org.bytedeco.opencv.global.opencv_imgproc.threshold;
@@ -28,6 +29,7 @@ import java.awt.image.FilteredImageSource;
 import java.awt.image.ImageFilter;
 import java.awt.image.ImageProducer;
 import java.awt.image.Raster;
+import java.awt.image.RescaleOp;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,7 +50,6 @@ import org.bytedeco.opencv.opencv_core.Point;
 import org.bytedeco.opencv.opencv_core.Rect;
 import org.bytedeco.opencv.opencv_core.Size;
 import org.datavec.image.loader.Java2DNativeImageLoader;
-import org.deeplearning4j.datasets.iterator.impl.EmnistDataSetIterator;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
@@ -82,9 +83,12 @@ public class TrainingPrepX4 {
 		ImageFilter filter = new GrayFilter();  
 		BufferedImageOp resampler = new ResampleOp(width, height, ResampleOp.FILTER_LANCZOS); // A good default filter, see class documentation for more info
 		
-		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("model_custom.r.9.bin"), false);
+		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("model_transfert.r.9.bin"), false);
 //		MultiLayerNetwork net2 = MultiLayerNetwork.load(new File("bestModel.bin"), false);
-		GuessResult analyse = analyse(width, height, net2, filter, resampler, "test/YRBO.png");
+		//GuessResult analyse = analyse(width, height, net2, filter, resampler, "test/YRBO.png");
+		GuessResult analyse = analyse(width, height, net2, filter, resampler, "ZMU6.png");
+		//GuessResult analyse = analyse(width, height, net2, filter, resampler, "Q3OT.png");
+		
 //		GuessResult analyse = analyse(width, height, net2, filter, resampler, "uACyk.jpeg");
 		System.out.println(analyse.guess + ";"+analyse.confident);
 	}
@@ -107,7 +111,7 @@ public class TrainingPrepX4 {
 		
 		
 		
-		File evalDirectory = new File("test");
+		File evalDirectory = new File("datas/train");
 		File errorDirectory = new File("error");
 		if (!errorDirectory.exists()) errorDirectory.mkdirs();
 		for (File f :errorDirectory.listFiles()) f.delete();
@@ -118,9 +122,11 @@ public class TrainingPrepX4 {
 		int correct = 0;
 		int all = 0;
 		for (File f : evalDirectory.listFiles()) {
-			String reference = f.getName().substring(0, 4);
+			String reference = f.getName().split("")[0];
 			
 			GuessResult analyse = analyse(width, height, net2, filter, resampler, f.getAbsolutePath());
+			
+			
 			if (reference.equals(analyse.guess)) {
 				correct++;
 			}
@@ -147,6 +153,7 @@ public class TrainingPrepX4 {
 		Mat origin  = imread(fileName);
 		Mat grayScale = new Mat(origin.size().width(), origin.size().height(), COLOR_BGR2GRAY);
 		Mat grayScaleHist = new Mat(origin.size().width(), origin.size().height(), COLOR_BGR2GRAY);
+		Mat inRange = new Mat(origin.size().width(), origin.size().height(), COLOR_BGR2GRAY);
 		Mat grayScaleWthBorder = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
 		Mat thresholded = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
 		Mat eroded = new Mat(origin.size().width() + 16, origin.size().height() + 16, COLOR_BGR2GRAY);
@@ -157,29 +164,41 @@ public class TrainingPrepX4 {
 		if (debugPrepare) imwrite("grayscale.png", grayScale);
 		
 		threshold(grayScale, grayScaleHist, 128, 255, THRESH_OTSU);
+		
+		erode(grayScaleHist, grayScaleHist, getStructuringElement(CV_SHAPE_ELLIPSE, new Size(2 * 1 + 1, 2 * 1 + 1),
+                new Point(1, 1)));
+		
 		//equalizeHist(grayScale, grayScaleHist);
-		if (debugPrepare) imwrite("grayscalehist.png", grayScaleHist);
+		if (debugPrepare) imwrite("dbg/grayscalehist.png", grayScaleHist);
 		//L’adaptation au changement plus que le suivi d’un plan
 		
+		inRange(grayScaleHist, new Mat(50.), new Mat(100.), inRange);
+		if (debugPrepare) imwrite("dbg/inRange.png", inRange);
+		
+		
 		copyMakeBorder(grayScaleHist, grayScaleWthBorder, 8, 8, 8, 8, BORDER_REPLICATE);
-		if (debugPrepare) imwrite("grayScaleWthBorder.png", grayScaleWthBorder);
+		if (debugPrepare) imwrite("dbg/grayScaleWthBorder.png", grayScaleWthBorder);
 		
 		threshold(grayScaleWthBorder, thresholded, 128, 255, THRESH_BINARY_INV | THRESH_OTSU);
-		if (debugPrepare) imwrite("thresholded.png", thresholded);
+		if (debugPrepare) imwrite("dbg/thresholded.png", thresholded);
 		
 		
+		Mat preparedForContours = thresholded; 
 		int kernelSize = 0;
+		/*
 		var elementType = CV_SHAPE_ELLIPSE;
         Mat element = getStructuringElement(elementType, new Size(2 * kernelSize + 1, 2 * kernelSize + 1),
                 new Point(kernelSize, kernelSize));
         erode(thresholded, eroded, element);
-        if (debugPrepare) imwrite("eroded.png", eroded);
+        if (debugPrepare) imwrite("dbg/eroded.png", eroded);
 		
         dilate(eroded, dilated, element);
-        if (debugPrepare) imwrite("dilated.png", dilated);
+        if (debugPrepare) imwrite("dbg/dilated.png", dilated);
+        preparedForContours = dilated;
+        */
         
 		MatVector contours = new MatVector();
-		findContours(dilated, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+		findContours(preparedForContours, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 		
 		
 		BufferedImage boxedDbg = ImageIO.read(new File(fileName));
@@ -191,8 +210,26 @@ public class TrainingPrepX4 {
 			Rect rect = boundingRect(p);
 			if (rect.area() < 32) continue;
 			boxes.add(rect);
+			//System.out.println("[] " + rect.x() + "-" +(rect.x() + rect.width()));
 		}
 		
+		if (boxes.size() == 2) {
+			List<Rect> tmp = new ArrayList<>();
+			for (int idx = 0; idx < boxes.size(); idx ++) {
+				Rect rect = boxes.get(idx);
+				//System.out.println("split " + rect.x() + "-" +(rect.x() + rect.width())  + "  " + ((0.001 + rect.width()) / rect.height()));
+				if ((0.001 + rect.width()) / rect.height() > 1.2) {
+					Rect a = new Rect(rect.x(), rect.y(), rect.width()/2+1, rect.height());
+					Rect b = new Rect(rect.x()+rect.width()/2, rect.y(), rect.width() - rect.width()/2+1, rect.height());
+					tmp.add(a);
+					tmp.add(b);
+				}
+				else {
+					tmp.add(rect);
+				}
+			}
+			boxes = tmp;
+		}
 		if (boxes.size() == 3) {
 			List<Rect> tmp = new ArrayList<>();
 			for (int idx = 0; idx < boxes.size(); idx ++) {
@@ -202,7 +239,7 @@ public class TrainingPrepX4 {
 					Rect b = new Rect(rect.x()+rect.width()/2, rect.y(), rect.width() - rect.width()/2+1, rect.height());
 					tmp.add(a);
 					tmp.add(b);
-					System.out.println("split " + rect.x() + "-" +(rect.x() + rect.width())  + "  " + ((0.001 + rect.width()) / rect.height()));
+					//System.out.println("split " + rect.x() + "-" +(rect.x() + rect.width())  + "  " + ((0.001 + rect.width()) / rect.height()));
 				}
 				else {
 					tmp.add(rect);
@@ -211,7 +248,7 @@ public class TrainingPrepX4 {
 			boxes = tmp;
 		}
 		
-		if (boxes.size() == 5) {
+		if (boxes.size() >= 5) {
 			//search to merge 2 collinding boxes
 
 			int idx_1 = 0;
@@ -269,7 +306,7 @@ public class TrainingPrepX4 {
 						y, 
 						w,
 						h);
-				if (debugPrepare) ImageIO.write(cropped, "PNG", new File("cropped_"+idx+".png"));
+				if (debugPrepare) ImageIO.write(cropped, "PNG", new File("dbg/cropped_"+idx+".png"));
 				
 				double dw = ((double)width)/w;
 				double dh = ((double)height)/h;
@@ -289,8 +326,12 @@ public class TrainingPrepX4 {
 				output = enlarged;
 			}
 			
+			RescaleOp rescaleOp = new RescaleOp(1.2f, 15, null);
+			rescaleOp.filter(output, output);
 			
-			if (debugPrepare) ImageIO.write(output, "PNG", new File("output_"+idx+".png"));
+			output = invert(output);
+			
+			if (debugPrepare) ImageIO.write(output, "PNG", new File("dbg/output_"+idx+".png"));
 			
 			//if (debugPrepare) 
 			{
@@ -300,7 +341,7 @@ public class TrainingPrepX4 {
 						Math.min(original_height - Math.max(rect.y()-8-kernelSize, 0), rect.height()+2*kernelSize));	
 			}
 			
-			GuessResult g = net2 !=  null ? guess(width, height, net2, invert(output)) : new GuessResult("", 0.);
+			GuessResult g = net2 !=  null ? guess(width, height, net2, output) : new GuessResult("", 0.);
 			if (g.confident > 0.2) guessed.put(rect.x(), g);
 			
 			if (debugNet) {
