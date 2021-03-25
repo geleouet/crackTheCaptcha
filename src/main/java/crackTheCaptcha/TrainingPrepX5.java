@@ -231,24 +231,37 @@ public class TrainingPrepX5 {
 		final int[] channels = new int[]{0};
 		final Mat mask = new Mat();
 		final Mat hist = new Mat();
-		final int[] histSize = new int[]{255};
-		final float[] histRange = new float[]{0f, 255f};
+		final int[] histSize = new int[]{256};
+		final float[] histRange = new float[]{0f, 256f};
 		IntPointer intPtrChannels = new IntPointer(channels);
 		IntPointer intPtrHistSize = new IntPointer(histSize);
 		final PointerPointer<FloatPointer> ptrPtrHistRange = new PointerPointer<>(histRange);
 		calcHist(grayScaleWthBorder, 1, intPtrChannels, mask, hist, 1, intPtrHistSize, ptrPtrHistRange, true, false);
 
-
-		//histogram.col(1).rows()
-		//histogram.getDoubleBuffer().get(1);
+		
+		// Remove max
 		hist.createIndexer().getDouble(1, 0);
-		String s = "";
-		for (int i = 0; i< 255; i++) {
-			if (hist.createIndexer().getDouble(i, 0) > 1) {
-				s= s+" " + i;
+		double max = 0.;
+		int maxidx = 0;
+		for (int i = 0; i<= 255; i++) {
+			var v=hist.createIndexer().getDouble(i, 0);
+			if (v > max) {
+				max = v;
+				maxidx = i;
 			}
-			
 		}
+		hist.createIndexer().putDouble(new long[] {maxidx, 0}, 0.);
+
+		normalize(hist, hist);
+		String s = "";
+		BufferedImage histogram = new BufferedImage(256, 256, BufferedImage.TYPE_INT_ARGB);
+		var grp = histogram.getGraphics();
+		grp.setColor(Color.black);
+		for (int i = 0; i<= 255; i++) {
+			s= s+" " + i +"("+df2.format(hist.createIndexer().getDouble(i, 0)) + ")";
+			grp.drawLine(i, 0, i, (int) (256*hist.createIndexer().getDouble(i, 0)));
+		}
+		ImageIO.write(histogram, "PNG", new File("dbg/histogram.png"));
 		System.out.println(s);
 		
 		
