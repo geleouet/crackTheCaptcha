@@ -41,8 +41,9 @@ import javax.imageio.ImageIO;
  *
  */
 
-public class OxCaptchaSimple {
-//    private static final Random RAND = new SecureRandom();
+public class OxFonts {
+private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	//    private static final Random RAND = new SecureRandom();
     private static final Random RAND = new Random(1378374134);
     private static final Random SEED = new Random(67843443547l);
 
@@ -58,22 +59,11 @@ public class OxCaptchaSimple {
     private boolean _hollow;
     private Font _font;
     private FontRenderContext _fontRenderContext;
-    private char[] _charSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray(); 
     		//new char[] { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'k', 'm', 'n', 'p', 'r', 'w', 'x', 'y', '2', '3', '4', '5', '6', '7', '8', 'A', 'J', 'K','z','q','S'};
 
-    String randomText(int length) {
-    	 char[] t = new char[length];
-         for (int i = 0; i < length; i++) {
-             t[i] = _charSet[RAND.nextInt(_charSet.length)];
-         }
-         return new String(t);
-    }
     
     public static void main(String[] args) throws IOException {
-    	int width = 150;
-    	int height = 50;
-    
-    	String pathname = "ox";
+    	String pathname = "fonts";
 		if (new File(pathname).exists()) {
     		for (var f:new File(pathname).listFiles()) f.delete();
     	}
@@ -85,108 +75,22 @@ public class OxCaptchaSimple {
     	Font[] allFonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAllFonts();
     	for (Font f: allFonts) {
     		System.out.println(f.getFontName());
+    		OxFonts oxCaptcha = new OxFonts(2048, 50);
+    		// Create background
+    		oxCaptcha.background();
+    		oxCaptcha.setFont(f.getFontName());
+    		oxCaptcha.foreground(Color.BLACK);
+    		oxCaptcha.text(ALPHABET);
+    		oxCaptcha.save(pathname+"/"+f.getFontName()+".png");
     	}
     	
     	
-    	for (int i = 0; i< 10_000; i++)
-    		draw(width, height, "ox/train/");
-    	for (int i = 0; i< 1_000; i++)
-    		draw(width, height, "ox/test/");
-    	for (int i = 0; i< 1_000; i++)
-    		draw(width, height, "ox/validate/");
+    	
 
 	}
 
-	private static void draw(int width, int height, String prefix) throws IOException {
-		if (!new File(prefix).exists()) new File(prefix).mkdirs();
-		
-		// Create Captcha container
-		OxCaptchaSimple oxCaptcha = new OxCaptchaSimple(150, 50);
-		// Create background
-		oxCaptcha.background();
-		
-		String fonts[] = new String[] {"Arial", "Georgia", "Lucida Console", "Rockwell"};
-		
-		// Add text
-		int grLvl = SEED.nextInt(128);
-		int grLvlNoise;
-		Color textColor = new Color(grLvl, grLvl, grLvl);
 
-		String t = oxCaptcha.randomText(4);
-
-		oxCaptcha.background();
-		oxCaptcha.setFont(fonts[SEED.nextInt(fonts.length)]);
-		
-		//c.backgroundGradient();
-		//c.backgroundSquiggles();
-		oxCaptcha.foreground(textColor);
-		if (SEED.nextBoolean())
-			oxCaptcha.noiseBig(0.5f);
-		
-		grLvlNoise = notFar(grLvl, 60);
-		oxCaptcha.foreground(new Color(grLvlNoise, grLvlNoise, grLvlNoise));
-		oxCaptcha.noiseCurvedLine();
-		if (SEED.nextBoolean())
-			oxCaptcha.distortion();
-
-		oxCaptcha.foreground(textColor);
-		oxCaptcha.text(t, (int)(0.05 * width), (int)(0.75 * height) , () -> SEED.nextInt(5)-2, () -> SEED.nextInt(4));
-		//c.text("2a2ba");
-		//oxCaptcha.text(new char[] {'a', 'b', 'c'}, new int[] {1, 2, 7}, 30, 5, -10);
-		
-		int xPeriod = RAND.nextInt(12) + 6;
-        int xPhase = RAND.nextInt(10) + 6;
-        int yPeriod = RAND.nextInt(14) + 4;
-        int yPhase = RAND.nextInt(12) + 4;
-        oxCaptcha.distortionShear(xPeriod, xPhase, yPeriod, yPhase);
-
-		// Add noise
-
-		grLvlNoise = notFar(grLvl, 60);
-		oxCaptcha.foreground(new Color(grLvlNoise, grLvlNoise, grLvlNoise));
-		oxCaptcha.noiseCurvedLine();
-		
-		grLvlNoise = notFar(grLvl, 40);
-		oxCaptcha.foreground(new Color(grLvlNoise, grLvlNoise, grLvlNoise));
-		oxCaptcha.noiseBig();
-		
-		
-		grLvlNoise = notFar(grLvl, 40);
-		oxCaptcha.foreground(new Color(grLvlNoise, grLvlNoise, grLvlNoise));
-		oxCaptcha.noiseStraightLine();
-		
-		
-		oxCaptcha.foreground(textColor);
-		oxCaptcha.noiseStraightLine(textColor, 1.0f);
-		oxCaptcha.noiseStraightLine(textColor, 1.0f);
-		oxCaptcha.noiseStraightLine(textColor, 1.0f);
-		//oxCaptcha.noiseStraightLine();
-		
-		
-		//oxCaptcha.noiseEllipses(5, 5f);
-		
-		//c.noiseCurvedLine();
-
-		// Apply transformation
-		//c.transformFishEye();
-		//c.transformStretch();
-		//c.transformShear();
-
-		//oxCaptcha.distortionElastic();
-
-		// Write image to a png file
-		oxCaptcha.save(prefix+t+".png");
-	}
-
-	private static int notFar(int grLvl, int dist) {
-		int grLvlNoise = SEED.nextInt(200);
-		while (Math.abs(grLvlNoise - grLvl) < dist) {
-			grLvlNoise = SEED.nextInt(200);
-		}
-		return grLvlNoise;
-	}
-    
-    public OxCaptchaSimple(int width, int height) {
+    public OxFonts(int width, int height) {
         _img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         _img_g = _img.createGraphics();
         _hollow = false;
@@ -207,11 +111,6 @@ public class OxCaptchaSimple {
         _width = width;
         _height = height;
 
-    }
-
-    public void setCharSet(char[] charSet) {
-        _charSet = charSet;
-        
     }
 
     public void setFont(String name) {
@@ -242,17 +141,6 @@ public class OxCaptchaSimple {
         _fg_color = color;
     }
 
-    public void text() {
-        text(5);
-    }
-
-    public void text(int length) {
-        char[] t = new char[length];
-        for (int i = 0; i < length; i++) {
-            t[i] = _charSet[RAND.nextInt(_charSet.length)];
-        }
-        text(t);
-    }
 
     public void text(String chars) {
         text(chars, (int)(0.05 * _width), (int)(0.75 * _height), () -> 0);
@@ -911,8 +799,8 @@ public class OxCaptchaSimple {
             }
         }
         
-        dxField = OxCaptchaSimple.gaussian(dxField, 2, 2.2);
-        dyField = OxCaptchaSimple.gaussian(dyField, 2, 2.2);
+        dxField = OxFonts.gaussian(dxField, 2, 2.2);
+        dyField = OxFonts.gaussian(dyField, 2, 2.2);
         
         for (int y = 0; y < _height; y++) 
         {
@@ -1048,8 +936,8 @@ public class OxCaptchaSimple {
             }
         }
         
-        dxField = OxCaptchaSimple.gaussian(dxField, kernelSize, sigma);
-        dyField = OxCaptchaSimple.gaussian(dyField, kernelSize, sigma);
+        dxField = OxFonts.gaussian(dxField, kernelSize, sigma);
+        dyField = OxFonts.gaussian(dyField, kernelSize, sigma);
         
         for (int y = 0; y < _height; y++) 
         {

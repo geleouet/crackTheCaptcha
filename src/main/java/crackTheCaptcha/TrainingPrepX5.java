@@ -17,14 +17,15 @@ import static org.bytedeco.opencv.global.opencv_imgproc.RETR_EXTERNAL;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_BINARY_INV;
 import static org.bytedeco.opencv.global.opencv_imgproc.THRESH_OTSU;
 import static org.bytedeco.opencv.global.opencv_imgproc.boundingRect;
-import static org.bytedeco.opencv.global.opencv_imgproc.*;
+import static org.bytedeco.opencv.global.opencv_imgproc.calcHist;
+import static org.bytedeco.opencv.global.opencv_imgproc.dilate;
 import static org.bytedeco.opencv.global.opencv_imgproc.drawContours;
 import static org.bytedeco.opencv.global.opencv_imgproc.findContours;
 import static org.bytedeco.opencv.global.opencv_imgproc.getStructuringElement;
 import static org.bytedeco.opencv.global.opencv_imgproc.morphologyEx;
 import static org.bytedeco.opencv.global.opencv_imgproc.threshold;
 import static org.bytedeco.opencv.global.opencv_photo.INPAINT_NS;
-import static org.bytedeco.opencv.global.opencv_photo.*;
+import static org.bytedeco.opencv.global.opencv_photo.inpaint;
 
 import java.awt.Color;
 import java.awt.Graphics;
@@ -51,6 +52,7 @@ import javax.imageio.ImageIO;
 
 import org.bytedeco.javacpp.FloatPointer;
 import org.bytedeco.javacpp.IntPointer;
+import org.bytedeco.javacpp.PointerPointer;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.MatVector;
 import org.bytedeco.opencv.opencv_core.Point;
@@ -63,8 +65,6 @@ import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
-import org.opencv.core.MatOfFloat;
-import org.opencv.core.MatOfInt;
 
 import com.twelvemonkeys.image.BufferedImageFactory;
 import com.twelvemonkeys.image.GrayFilter;
@@ -154,6 +154,8 @@ public class TrainingPrepX5 {
 		System.out.println("Captcha " + correct  + "/" + all);
 		
 	}
+	
+	
 
 	private static GuessResult analyse(int width, int height, MultiLayerNetwork net2, String fileName) throws IOException {
 		BufferedImage read = ImageIO.read(new File(fileName));
@@ -225,11 +227,29 @@ public class TrainingPrepX5 {
 		
 		copyMakeBorder(grayScale, grayScaleWthBorder, 8, 8, 8, 8, BORDER_REPLICATE);
 		if (debugPrepare) imwrite("dbg/grayScaleWthBorder.png", grayScaleWthBorder);
-		
-		var histogram = new Mat();
-		calcHist(new MatVector(grayScaleWthBorder), new IntPointer(1),new Mat(),histogram,new IntPointer(1),new FloatPointer(0.f, 255.f));
-		
-		System.out.println();
+
+		final int[] channels = new int[]{0};
+		final Mat mask = new Mat();
+		final Mat hist = new Mat();
+		final int[] histSize = new int[]{255};
+		final float[] histRange = new float[]{0f, 255f};
+		IntPointer intPtrChannels = new IntPointer(channels);
+		IntPointer intPtrHistSize = new IntPointer(histSize);
+		final PointerPointer<FloatPointer> ptrPtrHistRange = new PointerPointer<>(histRange);
+		calcHist(grayScaleWthBorder, 1, intPtrChannels, mask, hist, 1, intPtrHistSize, ptrPtrHistRange, true, false);
+
+
+		//histogram.col(1).rows()
+		//histogram.getDoubleBuffer().get(1);
+		hist.createIndexer().getDouble(1, 0);
+		String s = "";
+		for (int i = 0; i< 255; i++) {
+			if (hist.createIndexer().getDouble(i, 0) > 1) {
+				s= s+" " + i;
+			}
+			
+		}
+		System.out.println(s);
 		
 		
 		//for (int i = 0; i < 255; i += 4)
